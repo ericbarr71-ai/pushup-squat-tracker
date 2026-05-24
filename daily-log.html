@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Daily Log">
+<meta name="theme-color" content="#0E0E12">
+<title>Daily Log</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:#0E0E12;overscroll-behavior:none}
+body{font-family:system-ui,-apple-system,sans-serif;color:#fff;overflow-x:hidden}
+button{cursor:pointer;font-family:inherit}
+textarea{font-family:inherit;-webkit-appearance:none}
+textarea::placeholder{color:rgba(255,255,255,0.22)}
+button:disabled{opacity:0.3}
+
+#app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;position:relative}
+.bg{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse at 20% 0%,#1a1a2e 0%,transparent 60%),
+             radial-gradient(ellipse at 80% 100%,#1a0a0a 0%,transparent 60%)}
+
+/* HEADER */
+.hdr{position:sticky;top:0;z-index:10;background:rgba(14,14,18,0.97);
+  backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,0.08);
+  padding:12px 16px 10px}
+.hdr-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.app-title{font-size:24px;font-weight:900;letter-spacing:4px;color:#fff}
+.app-title span{color:#22C55E}
+.rep-badge{font-size:11px;letter-spacing:1px;background:rgba(34,197,94,0.12);
+  border:1px solid rgba(34,197,94,0.35);color:#4ADE80;padding:3px 10px;border-radius:20px;font-weight:700}
+
+/* MONTH NAV */
+.month-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px}
+.mnav-btn{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);
+  color:#fff;border-radius:10px;padding:7px 14px;font-size:18px;line-height:1;flex-shrink:0}
+.mnav-btn:disabled{opacity:0.2}
+.mnav-label{flex:1;text-align:center;font-size:15px;font-weight:700;letter-spacing:2px;color:#fff}
+.mnav-year{font-size:11px;color:rgba(255,255,255,0.4);letter-spacing:1px;display:block;margin-top:1px}
+
+.prog-wrap{display:flex;flex-direction:column;gap:4px}
+.prog-bar{height:4px;background:rgba(255,255,255,0.1);border-radius:99px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,#22C55E,#4ADE80);border-radius:99px;transition:width 0.4s}
+.prog-label{display:flex;align-items:center;font-size:11px;color:rgba(255,255,255,0.4)}
+.prog-num{color:#fff;font-weight:700;font-size:12px}
+.prog-right{margin-left:auto}
+
+/* CALENDAR */
+.cal-wrap{flex:1;padding:10px 10px 0;position:relative;z-index:1}
+.day-labels{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:3px}
+.dl{text-align:center;font-size:11px;letter-spacing:1px;color:rgba(255,255,255,0.3);padding:3px 0;font-weight:700}
+.dl.we{color:rgba(34,197,94,0.5)}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.cell{aspect-ratio:1/1.1;background:rgba(255,255,255,0.04);border-radius:8px;
+  border:1px solid rgba(255,255,255,0.06);display:flex;flex-direction:column;
+  align-items:center;justify-content:space-between;padding:5px 3px 4px;
+  cursor:pointer;position:relative;overflow:hidden;transition:all 0.15s;user-select:none}
+.cell.empty{background:transparent;border-color:transparent;pointer-events:none}
+.cell.weekend{background:rgba(255,255,255,0.02);border-color:rgba(255,255,255,0.04)}
+.cell.done{background:rgba(34,197,94,0.13);border-color:rgba(34,197,94,0.45)}
+.cell.partial{background:rgba(234,179,8,0.10);border-color:rgba(234,179,8,0.35)}
+.cell.today{border-color:#22C55E;border-width:2px}
+.cell.celebrate{background:rgba(34,197,94,0.28);border-color:#22C55E}
+.cell-num{font-size:14px;font-weight:700;color:rgba(255,255,255,0.7);line-height:1}
+.cell.done .cell-num{color:#4ADE80}
+.cell.partial .cell-num{color:#FDE047}
+.cell.today .cell-num{color:#fff}
+.pips{display:grid;grid-template-columns:1fr 1fr;gap:2px;width:100%}
+.pip{height:3px;border-radius:99px;background:rgba(255,255,255,0.15)}
+.pip.on.dp{background:#22C55E}
+.pip.on.pp{background:#EAB308}
+.cell-check{position:absolute;bottom:2px;right:4px;font-size:10px;color:#4ADE80;font-weight:900}
+.cell-note{position:absolute;bottom:2px;right:4px;font-size:9px;color:#888}
+
+/* DAY VIEW */
+.day-view{flex:1;padding:12px 14px;position:relative;z-index:1;display:flex;flex-direction:column;gap:10px}
+.back-btn{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.07);
+  border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:9px 16px;width:100%}
+.back-arrow{font-size:18px;color:#fff;line-height:1}
+.back-label{font-size:12px;font-weight:700;letter-spacing:2px;color:rgba(255,255,255,0.6)}
+.day-hdr{display:flex;justify-content:space-between;align-items:center}
+.day-date{display:flex;align-items:center;gap:12px}
+.day-num{font-size:54px;line-height:1;color:#fff;font-weight:900}
+.day-dow{font-size:10px;font-weight:700;letter-spacing:3px;color:#4ADE80;margin-bottom:2px}
+.day-month{font-size:14px;font-weight:700;letter-spacing:2px;color:rgba(255,255,255,0.6)}
+.done-badge{background:linear-gradient(135deg,#22C55E,#4ADE80);padding:6px 11px;
+  border-radius:10px;font-weight:700;font-size:12px;letter-spacing:1px;
+  box-shadow:0 4px 16px rgba(34,197,94,0.4);color:#000;white-space:nowrap}
+.sessions{display:flex;flex-direction:column;gap:10px}
+.session-block{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;overflow:hidden}
+.session-label{display:flex;align-items:center;gap:8px;padding:8px 14px;
+  border-bottom:1px solid rgba(255,255,255,0.06);font-size:10px;font-weight:700;
+  letter-spacing:2px;color:rgba(255,255,255,0.4)}
+.session-dot{width:6px;height:6px;border-radius:50%;display:inline-block;flex-shrink:0}
+.workout-row{width:100%;display:flex;align-items:center;gap:12px;padding:10px 14px;
+  background:none;border:none;border-bottom:1px solid rgba(255,255,255,0.05);
+  color:#fff;text-align:left;transition:background 0.15s}
+.workout-row.checked{background:rgba(34,197,94,0.08)}
+.workout-row.pulse{background:rgba(34,197,94,0.2)}
+.chkbox{width:26px;height:26px;border-radius:7px;border:2px solid rgba(255,255,255,0.2);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s}
+.chkbox.on{background:#22C55E;border-color:#22C55E}
+.chk-icon{font-size:14px;color:#000;font-weight:900}
+.w-info{flex:1}
+.w-name{font-size:16px;font-weight:600}
+.w-reps{font-size:11px;color:rgba(255,255,255,0.35);letter-spacing:1px;margin-top:1px}
+.done-pill{font-size:10px;font-weight:700;letter-spacing:1px;color:#4ADE80;
+  background:rgba(34,197,94,0.15);padding:2px 8px;border-radius:99px;flex-shrink:0}
+.note-wrap{display:flex;align-items:flex-start;gap:8px;padding:7px 14px 8px;
+  border-top:1px solid rgba(255,255,255,0.06)}
+.note-icon{font-size:13px;color:rgba(255,255,255,0.25);padding-top:2px;flex-shrink:0}
+.note-input{flex:1;background:transparent;border:none;outline:none;color:rgba(255,255,255,0.7);
+  font-size:13px;line-height:1.4;resize:none;width:100%;caret-color:#22C55E}
+.day-nav{display:flex;justify-content:space-between;align-items:center;padding-top:2px}
+.day-nav-btn{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);
+  color:#fff;border-radius:10px;padding:9px 18px;font-size:14px;letter-spacing:1px}
+.day-nav-cur{font-size:12px;color:rgba(255,255,255,0.3);letter-spacing:1px}
+.footer{padding:10px 16px;text-align:center;border-top:1px solid rgba(255,255,255,0.06);z-index:1;position:relative}
+.footer-txt{font-size:10px;letter-spacing:2px;color:rgba(255,255,255,0.2);font-weight:700}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="bg"></div>
+  <div class="hdr">
+    <div class="hdr-top">
+      <span class="app-title">DAILY<span> LOG</span></span>
+      <span class="rep-badge">25 reps × 4</span>
+    </div>
+    <div class="month-nav">
+      <button class="mnav-btn" id="prev-month" onclick="prevMonth()">‹</button>
+      <div class="mnav-label" id="mnav-label"></div>
+      <button class="mnav-btn" id="next-month" onclick="nextMonth()">›</button>
+    </div>
+    <div class="prog-wrap">
+      <div class="prog-bar"><div class="prog-fill" id="prog-fill"></div></div>
+      <div class="prog-label">
+        <span class="prog-num" id="prog-days"></span>
+        <span id="prog-total"></span>
+        <span class="prog-num prog-right" id="prog-pct"></span>
+      </div>
+    </div>
+  </div>
+  <div id="view"></div>
+  <div class="footer"><span class="footer-txt">DAILY LOG · 25 REPS × 4 · EVERY DAY</span></div>
+</div>
+
+<script>
+const WORKOUTS = [
+  {id:"mpu",label:"Push-up",emoji:"💪",period:"AM"},
+  {id:"msq",label:"Squat",  emoji:"🦵",period:"AM"},
+  {id:"epu",label:"Push-up",emoji:"💪",period:"PM"},
+  {id:"esq",label:"Squat",  emoji:"🦵",period:"PM"},
+];
+const DAY_LABELS = ["S","M","T","W","T","F","S"];
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const SK = "dailylog-2026"; // keep same key so existing data is preserved
+
+// Start: May 2026, End: Apr 2056 (30 years = 360 months)
+const START_YEAR = 2026, START_MONTH = 4; // month index 4 = May
+const TOTAL_MONTHS = 360;
+
+function getMonthData(idx) {
+  const totalMo = START_MONTH + idx;
+  const year = START_YEAR + Math.floor(totalMo / 12);
+  const mi = totalMo % 12;
+  const days = new Date(year, mi + 1, 0).getDate();
+  return { name: MONTH_NAMES[mi], year, mi, days, idx };
+}
+
+// ── State ──
+let state = {checked:{}, notes:{}};
+try {
+  const r = localStorage.getItem(SK);
+  if (r) {
+    const p = JSON.parse(r);
+    // back-compat: old format was flat checked object
+    state = (p.checked !== undefined) ? p : {checked: p, notes: {}};
+  }
+} catch(e) {}
+
+migrateData();
+
+// Start on current month (or closest)
+let activeMonth = (function(){
+  const now = new Date();
+  const idx = (now.getFullYear() - START_YEAR) * 12 + (now.getMonth() - START_MONTH);
+  return Math.max(0, Math.min(TOTAL_MONTHS - 1, idx));
+})();
+
+let currentView = "calendar";
+let selectedDay = null;
+
+function persist() {
+  try { localStorage.setItem(SK, JSON.stringify(state)); } catch(e) {}
+}
+
+// ── Accessors ──
+// Migrate old keys (no year prefix) → assume 2026
+function migrateData() {
+  let changed = false;
+  for (const obj of ['checked','notes']) {
+    const newObj = {};
+    for (const [k, v] of Object.entries(state[obj])) {
+      if (/^\d{4}-/.test(k)) { newObj[k] = v; } // already has year
+      else { newObj['2026-' + k] = v; changed = true; } // add 2026
+    }
+    state[obj] = newObj;
+  }
+  if (changed) persist();
+}
+
+function ck(year, mi, day, wid) { return `${year}-${mi}-${day}-${wid}`; }
+function nk(year, mi, day, p)   { return `${year}-${mi}-${day}-${p}`; }
+
+function isChecked(year, mi, day, wid) { return !!state.checked[ck(year,mi,day,wid)]; }
+function dayProg(year, mi, day) { return WORKOUTS.filter(w => isChecked(year, mi, day, w.id)).length; }
+function dayDone(year, mi, day) { return dayProg(year, mi, day) === 4; }
+function getNote(year, mi, day, p) { return state.notes[nk(year,mi,day,p)] || ""; }
+function hasNote(year, mi, day, p) { return !!state.notes[nk(year,mi,day,p)]; }
+
+function toggle(year, mi, day, wid) {
+  const k = ck(year, mi, day, wid);
+  if (state.checked[k]) delete state.checked[k];
+  else state.checked[k] = true;
+  persist();
+  if (dayDone(year, mi, day)) celebrate(year, mi, day);
+  render();
+}
+
+function setNote(year, mi, day, p, text) {
+  const k = nk(year, mi, day, p);
+  if (text.trim()) state.notes[k] = text;
+  else delete state.notes[k];
+  persist();
+}
+
+// ── Celebration ──
+let celebTimer = null, celebKey = null;
+function celebrate(year, mi, day) {
+  celebKey = `${year}-${mi}-${day}`;
+  clearTimeout(celebTimer);
+  celebTimer = setTimeout(() => { celebKey = null; renderCalendar(); }, 1200);
+}
+
+// ── Render ──
+function render() {
+  renderHeader();
+  renderProgress();
+  if (currentView === "calendar") renderCalendar();
+  else renderDay();
+}
+
+function renderHeader() {
+  const m = getMonthData(activeMonth);
+  document.getElementById("mnav-label").innerHTML =
+    `<strong>${m.name.toUpperCase()}</strong><span class="mnav-year">${m.year}</span>`;
+  document.getElementById("prev-month").disabled = activeMonth === 0;
+  document.getElementById("next-month").disabled = activeMonth === TOTAL_MONTHS - 1;
+}
+
+function renderProgress() {
+  const m = getMonthData(activeMonth);
+  const total = WORKOUTS.length * m.days;
+  const done = Array.from({length:m.days},(_,i)=>i+1).reduce((s,d) => s + dayProg(m.year, m.mi, d), 0);
+  const comp = Array.from({length:m.days},(_,i)=>i+1).filter(d => dayDone(m.year, m.mi, d)).length;
+  const pct = Math.round((done / total) * 100);
+  document.getElementById("prog-fill").style.width = pct + "%";
+  document.getElementById("prog-days").textContent = comp;
+  document.getElementById("prog-total").textContent = ` / ${m.days} days complete`;
+  document.getElementById("prog-pct").textContent = pct + "%";
+}
+
+function renderCalendar() {
+  const m = getMonthData(activeMonth);
+  const firstDay = new Date(m.year, m.mi, 1).getDay();
+  const cells = Math.ceil((firstDay + m.days) / 7) * 7;
+  const today = new Date();
+  let html = `<div class="cal-wrap"><div class="day-labels">`;
+  DAY_LABELS.forEach((d,i) => { html += `<div class="dl${i===0||i===6?" we":""}">${d}</div>`; });
+  html += `</div><div class="grid">`;
+  for (let i = 0; i < cells; i++) {
+    const day = i - firstDay + 1;
+    const valid = day >= 1 && day <= m.days;
+    if (!valid) { html += `<div class="cell empty"></div>`; continue; }
+    const prog = dayProg(m.year, m.mi, day);
+    const done = prog === 4;
+    const dow = i % 7;
+    const weekend = dow === 0 || dow === 6;
+    const isToday = today.getFullYear()===m.year && today.getMonth()===m.mi && today.getDate()===day;
+    const isCeleb = celebKey === `${m.year}-${m.mi}-${day}`;
+    const anyNote = hasNote(m.year, m.mi, day, "AM") || hasNote(m.year, m.mi, day, "PM");
+    const pipCls = done ? "dp" : "pp";
+    let cls = "cell";
+    if (weekend) cls += " weekend";
+    if (done) cls += " done";
+    else if (prog > 0) cls += " partial";
+    if (isToday) cls += " today";
+    if (isCeleb) cls += " celebrate";
+    let pips = "";
+    WORKOUTS.forEach(w => { pips += `<div class="pip${isChecked(m.year,m.mi,day,w.id)?" on "+pipCls:""}"></div>`; });
+    const badge = done ? `<div class="cell-check">✓</div>` : (anyNote ? `<div class="cell-note">✎</div>` : "");
+    html += `<div class="${cls}" onclick="openDay(${day})">
+      <div class="cell-num">${day}</div>
+      <div class="pips">${pips}</div>
+      ${badge}
+    </div>`;
+  }
+  html += `</div></div>`;
+  document.getElementById("view").innerHTML = html;
+}
+
+function renderDay() {
+  const m = getMonthData(activeMonth);
+  const day = selectedDay;
+  const dow = new Date(m.year, m.mi, day).toLocaleDateString("en-US", {weekday:"long"}).toUpperCase();
+  const done = dayDone(m.year, m.mi, day);
+  let html = `<div class="day-view">
+    <button class="back-btn" onclick="closeDay()">
+      <span class="back-arrow">←</span>
+      <span class="back-label">BACK TO ${m.name.toUpperCase()} ${m.year}</span>
+    </button>
+    <div class="day-hdr">
+      <div class="day-date">
+        <span class="day-num">${day}</span>
+        <div>
+          <div class="day-dow">${dow}</div>
+          <div class="day-month">${m.name.toUpperCase()} ${m.year}</div>
+        </div>
+      </div>
+      ${done ? `<div class="done-badge">ALL DONE ✓</div>` : ""}
+    </div>
+    <div class="sessions">`;
+
+  ["AM","PM"].forEach(period => {
+    const isAM = period === "AM";
+    const color = isAM ? "#FF3030" : "#7B61FF";
+    const label = isAM ? "MORNING SESSION" : "EVENING SESSION";
+    const note = getNote(m.year, m.mi, day, period);
+    html += `<div class="session-block">
+      <div class="session-label">
+        <span class="session-dot" style="background:${color}"></span>${label}
+      </div>`;
+    WORKOUTS.filter(w => w.period === period).forEach(w => {
+      const chk = isChecked(m.year, m.mi, day, w.id);
+      html += `<button class="workout-row${chk?" checked":""}" id="row-${w.id}" onclick="tapRow(${m.year},${m.mi},${day},'${w.id}')">
+        <div class="chkbox${chk?" on":""}">${chk?`<span class="chk-icon">✓</span>`:""}</div>
+        <div class="w-info">
+          <div class="w-name">${w.emoji} ${w.label}</div>
+          <div class="w-reps">25 reps</div>
+        </div>
+        ${chk?`<div class="done-pill">Done</div>`:""}
+      </button>`;
+    });
+    html += `<div class="note-wrap">
+      <span class="note-icon">✎</span>
+      <textarea class="note-input" rows="${note?2:1}"
+        placeholder="Notes — e.g. &quot;2pm&quot;, &quot;missed, was sick&quot;…"
+        onchange="updateNote(${m.year},${m.mi},${day},'${period}',this.value)"
+        oninput="this.rows=this.value?2:1">${escHtml(note)}</textarea>
+    </div></div>`;
+  });
+
+  html += `</div>
+    <div class="day-nav">
+      <button class="day-nav-btn" onclick="prevDay()" ${day===1?"disabled":""}>← Prev</button>
+      <span class="day-nav-cur">${day} / ${m.days}</span>
+      <button class="day-nav-btn" onclick="nextDay()" ${day===m.days?"disabled":""}>Next →</button>
+    </div>
+  </div>`;
+  document.getElementById("view").innerHTML = html;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// ── Actions ──
+function prevMonth() { if (activeMonth > 0) { activeMonth--; currentView="calendar"; render(); } }
+function nextMonth() { if (activeMonth < TOTAL_MONTHS-1) { activeMonth++; currentView="calendar"; render(); } }
+function openDay(day) { selectedDay = day; currentView = "day"; render(); }
+function closeDay() { currentView = "calendar"; render(); }
+function prevDay() { if (selectedDay > 1) { selectedDay--; renderDay(); renderProgress(); } }
+function nextDay() {
+  const m = getMonthData(activeMonth);
+  if (selectedDay < m.days) { selectedDay++; renderDay(); renderProgress(); }
+}
+function tapRow(year, mi, day, wid) {
+  const btn = document.getElementById(`row-${wid}`);
+  if (btn) { btn.classList.add("pulse"); setTimeout(() => btn.classList.remove("pulse"), 300); }
+  toggle(year, mi, day, wid);
+}
+let noteTimer = null;
+function updateNote(year, mi, day, p, text) {
+  clearTimeout(noteTimer);
+  noteTimer = setTimeout(() => setNote(year, mi, day, p, text), 600);
+}
+
+// ── Init ──
+render();
+</script>
+</body>
+</html>
